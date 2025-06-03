@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, Search, Edit, Phone, Mail, Calendar, Eye } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface Lead {
   id: number;
@@ -72,9 +72,12 @@ const LeadManagement = () => {
   ]);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const { toast } = useToast();
 
   const [newLead, setNewLead] = useState({
     companyName: '',
@@ -139,6 +142,47 @@ const LeadManagement = () => {
       notes: ''
     });
     setIsAddDialogOpen(false);
+    toast({
+      title: "Lead Added",
+      description: "New lead has been successfully added.",
+    });
+  };
+
+  const handleEditLead = (lead: Lead) => {
+    setEditingLead({...lead});
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateLead = () => {
+    if (editingLead) {
+      setLeads(leads.map(lead => 
+        lead.id === editingLead.id ? editingLead : lead
+      ));
+      setIsEditDialogOpen(false);
+      setEditingLead(null);
+      toast({
+        title: "Lead Updated",
+        description: "Lead information has been successfully updated.",
+      });
+    }
+  };
+
+  const handleCallLead = (lead: Lead) => {
+    // Update last contact date
+    const updatedLeads = leads.map(l => 
+      l.id === lead.id 
+        ? { ...l, lastContact: new Date().toISOString().split('T')[0] }
+        : l
+    );
+    setLeads(updatedLeads);
+    
+    toast({
+      title: "Call Initiated",
+      description: `Calling ${lead.contactPerson} at ${lead.phone}`,
+    });
+    
+    // In a real application, this would integrate with a calling system
+    console.log(`Initiating call to ${lead.phone}`);
   };
 
   return (
@@ -343,10 +387,10 @@ const LeadManagement = () => {
                         <Button size="sm" variant="outline" onClick={() => setSelectedLead(lead)}>
                           <Eye className="h-3 w-3" />
                         </Button>
-                        <Button size="sm" variant="outline">
+                        <Button size="sm" variant="outline" onClick={() => handleEditLead(lead)}>
                           <Edit className="h-3 w-3" />
                         </Button>
-                        <Button size="sm" variant="outline">
+                        <Button size="sm" variant="outline" onClick={() => handleCallLead(lead)}>
                           <Phone className="h-3 w-3" />
                         </Button>
                       </div>
@@ -358,6 +402,121 @@ const LeadManagement = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit Lead Dialog */}
+      {editingLead && (
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Lead - {editingLead.companyName}</DialogTitle>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="editCompanyName">Company Name</Label>
+                <Input
+                  id="editCompanyName"
+                  value={editingLead.companyName}
+                  onChange={(e) => setEditingLead({...editingLead, companyName: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editContactPerson">Contact Person</Label>
+                <Input
+                  id="editContactPerson"
+                  value={editingLead.contactPerson}
+                  onChange={(e) => setEditingLead({...editingLead, contactPerson: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editEmail">Email</Label>
+                <Input
+                  id="editEmail"
+                  type="email"
+                  value={editingLead.email}
+                  onChange={(e) => setEditingLead({...editingLead, email: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editPhone">Phone</Label>
+                <Input
+                  id="editPhone"
+                  value={editingLead.phone}
+                  onChange={(e) => setEditingLead({...editingLead, phone: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editStatus">Status</Label>
+                <Select value={editingLead.status} onValueChange={(value) => setEditingLead({...editingLead, status: value})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statuses.map(status => (
+                      <SelectItem key={status} value={status}>
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editPriority">Priority</Label>
+                <Select value={editingLead.priority} onValueChange={(value) => setEditingLead({...editingLead, priority: value})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {priorities.map(priority => (
+                      <SelectItem key={priority} value={priority}>
+                        {priority.charAt(0).toUpperCase() + priority.slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editAssignee">Assign to</Label>
+                <Select value={editingLead.assignee} onValueChange={(value) => setEditingLead({...editingLead, assignee: value})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users.map(user => (
+                      <SelectItem key={user} value={user}>{user}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editNextFollowUp">Next Follow-up</Label>
+                <Input
+                  id="editNextFollowUp"
+                  type="date"
+                  value={editingLead.nextFollowUp}
+                  onChange={(e) => setEditingLead({...editingLead, nextFollowUp: e.target.value})}
+                />
+              </div>
+              <div className="col-span-2 space-y-2">
+                <Label htmlFor="editNotes">Notes</Label>
+                <Textarea
+                  id="editNotes"
+                  value={editingLead.notes}
+                  onChange={(e) => setEditingLead({...editingLead, notes: e.target.value})}
+                  rows={3}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleUpdateLead} className="bg-blue-600 hover:bg-blue-700">
+                Update Lead
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Lead Detail Dialog */}
       {selectedLead && (
