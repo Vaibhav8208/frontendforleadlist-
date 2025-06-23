@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,77 +8,23 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Search, Edit, Mail, Phone, Shield, Users } from 'lucide-react';
 
-interface User {
-  id: number;
-  name: string;
-  email: string;
-  phone: string;
-  role: string;
-  department: string;
-  status: string;
-  joinDate: string;
-  leadsAssigned: number;
-  leadsConverted: number;
-}
+// Import everything from your new API file
+import { User, NewUserPayload, getUsers, addUser } from '@/api/userApi';
 
 const UserManagement = () => {
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: 1,
-      name: 'Rahul Sharma',
-      email: 'rahul@company.com',
-      phone: '+91 98765 43210',
-      role: 'Senior Sales Executive',
-      department: 'Sales',
-      status: 'active',
-      joinDate: '2023-06-15',
-      leadsAssigned: 25,
-      leadsConverted: 8
-    },
-    {
-      id: 2,
-      name: 'Priya Patel',
-      email: 'priya@company.com',
-      phone: '+91 87654 32109',
-      role: 'Sales Executive',
-      department: 'Sales',
-      status: 'active',
-      joinDate: '2023-08-20',
-      leadsAssigned: 18,
-      leadsConverted: 5
-    },
-    {
-      id: 3,
-      name: 'Amit Kumar',
-      email: 'amit@company.com',
-      phone: '+91 76543 21098',
-      role: 'Team Lead',
-      department: 'Sales',
-      status: 'active',
-      joinDate: '2023-03-10',
-      leadsAssigned: 32,
-      leadsConverted: 12
-    },
-    {
-      id: 4,
-      name: 'Sneha Singh',
-      email: 'sneha@company.com',
-      phone: '+91 65432 10987',
-      role: 'Sales Executive',
-      department: 'Sales',
-      status: 'active',
-      joinDate: '2023-09-05',
-      leadsAssigned: 15,
-      leadsConverted: 3
-    }
-  ]);
+  // State for data, loading, and errors
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // UI State
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-  const [newUser, setNewUser] = useState({
+  // Form state for adding a new user
+  const [newUser, setNewUser] = useState<NewUserPayload>({
     name: '',
     email: '',
     phone: '',
@@ -87,6 +32,25 @@ const UserManagement = () => {
     department: 'Sales',
     status: 'active'
   });
+
+  // Fetch users when the component mounts
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoading(true); // Start loading
+        const data = await getUsers();
+        setUsers(data);
+        setError(null); // Clear any previous errors
+      } catch (err: any) {
+        setError(err.message || 'An unexpected error occurred.');
+        console.error(err);
+      } finally {
+        setLoading(false); // Stop loading regardless of success or failure
+      }
+    };
+
+    fetchUsers();
+  }, []); // The empty dependency array means this effect runs only once on mount
 
   const roles = ['Sales Executive', 'Senior Sales Executive', 'Team Lead', 'Sales Manager', 'Admin'];
   const departments = ['Sales', 'Marketing', 'Support', 'Admin'];
@@ -117,24 +81,28 @@ const UserManagement = () => {
     return matchesSearch && matchesRole;
   });
 
-  const handleAddUser = () => {
-    const user: User = {
-      id: users.length + 1,
-      ...newUser,
-      joinDate: new Date().toISOString().split('T')[0],
-      leadsAssigned: 0,
-      leadsConverted: 0
-    };
-    setUsers([...users, user]);
-    setNewUser({
-      name: '',
-      email: '',
-      phone: '',
-      role: '',
-      department: 'Sales',
-      status: 'active'
-    });
-    setIsAddDialogOpen(false);
+  // Updated to be async and call the API
+  const handleAddUser = async () => {
+    if (!newUser.name || !newUser.email || !newUser.role) {
+      alert('Please fill in required fields: Name, Email, and Role.');
+      return;
+    }
+    try {
+      const addedUser = await addUser(newUser);
+      setUsers(prevUsers => [...prevUsers, addedUser]); // Add user returned from API to state
+      setNewUser({
+        name: '',
+        email: '',
+        phone: '',
+        role: '',
+        department: 'Sales',
+        status: 'active'
+      });
+      setIsAddDialogOpen(false);
+    } catch (apiError: any) {
+      console.error("Failed to add user:", apiError);
+      alert(apiError.message || "Could not add user. Please try again.");
+    }
   };
 
   return (
@@ -226,78 +194,41 @@ const UserManagement = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  value={newUser.name}
-                  onChange={(e) => setNewUser({...newUser, name: e.target.value})}
-                />
+                <Input id="name" value={newUser.name} onChange={(e) => setNewUser({...newUser, name: e.target.value})} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={newUser.email}
-                  onChange={(e) => setNewUser({...newUser, email: e.target.value})}
-                />
+                <Input id="email" type="email" value={newUser.email} onChange={(e) => setNewUser({...newUser, email: e.target.value})} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  value={newUser.phone}
-                  onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
-                />
+                <Input id="phone" value={newUser.phone} onChange={(e) => setNewUser({...newUser, phone: e.target.value})} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="role">Role</Label>
                 <Select value={newUser.role} onValueChange={(value) => setNewUser({...newUser, role: value})}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roles.map(role => (
-                      <SelectItem key={role} value={role}>{role}</SelectItem>
-                    ))}
-                  </SelectContent>
+                  <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
+                  <SelectContent>{roles.map(role => (<SelectItem key={role} value={role}>{role}</SelectItem>))}</SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="department">Department</Label>
                 <Select value={newUser.department} onValueChange={(value) => setNewUser({...newUser, department: value})}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {departments.map(dept => (
-                      <SelectItem key={dept} value={dept}>{dept}</SelectItem>
-                    ))}
-                  </SelectContent>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{departments.map(dept => (<SelectItem key={dept} value={dept}>{dept}</SelectItem>))}</SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
                 <Select value={newUser.status} onValueChange={(value) => setNewUser({...newUser, status: value})}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statuses.map(status => (
-                      <SelectItem key={status} value={status}>
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{statuses.map(status => (<SelectItem key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</SelectItem>))}</SelectContent>
                 </Select>
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleAddUser} className="bg-blue-600 hover:bg-blue-700">
-                Add User
-              </Button>
+              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleAddUser} className="bg-blue-600 hover:bg-blue-700">Add User</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -320,7 +251,13 @@ const UserManagement = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredUsers.map((user) => (
+                {loading && (
+                  <tr><td colSpan={7} className="text-center p-8 text-gray-500">Loading users...</td></tr>
+                )}
+                {error && (
+                   <tr><td colSpan={7} className="text-center p-8 text-red-600 font-medium">{error}</td></tr>
+                )}
+                {!loading && !error && filteredUsers.map((user) => (
                   <tr key={user.id} className="border-b hover:bg-gray-50">
                     <td className="p-4">
                       <div className="flex items-center gap-3">
@@ -335,35 +272,17 @@ const UserManagement = () => {
                     </td>
                     <td className="p-4">
                       <div className="space-y-1">
-                        <div className="flex items-center gap-1 text-sm">
-                          <Mail className="h-3 w-3" />
-                          {user.email}
-                        </div>
-                        <div className="flex items-center gap-1 text-sm">
-                          <Phone className="h-3 w-3" />
-                          {user.phone}
-                        </div>
+                        <div className="flex items-center gap-1 text-sm"><Mail className="h-3 w-3" />{user.email}</div>
+                        <div className="flex items-center gap-1 text-sm"><Phone className="h-3 w-3" />{user.phone}</div>
                       </div>
                     </td>
-                    <td className="p-4">
-                      <Badge className={`${getRoleColor(user.role)}`}>
-                        {user.role}
-                      </Badge>
-                    </td>
+                    <td className="p-4"><Badge className={`${getRoleColor(user.role)}`}>{user.role}</Badge></td>
                     <td className="p-4">{user.department}</td>
-                    <td className="p-4">
-                      <Badge className={`${getStatusColor(user.status)}`}>
-                        {user.status}
-                      </Badge>
-                    </td>
+                    <td className="p-4"><Badge className={`${getStatusColor(user.status)}`}>{user.status}</Badge></td>
                     <td className="p-4">
                       <div className="space-y-1">
-                        <div className="text-sm">
-                          <span className="font-medium">{user.leadsAssigned}</span> leads assigned
-                        </div>
-                        <div className="text-sm">
-                          <span className="font-medium text-green-600">{user.leadsConverted}</span> converted
-                        </div>
+                        <div className="text-sm"><span className="font-medium">{user.leadsAssigned}</span> leads assigned</div>
+                        <div className="text-sm"><span className="font-medium text-green-600">{user.leadsConverted}</span> converted</div>
                         <div className="text-xs text-gray-500">
                           {user.leadsAssigned > 0 ? Math.round((user.leadsConverted / user.leadsAssigned) * 100) : 0}% conversion rate
                         </div>
@@ -371,12 +290,8 @@ const UserManagement = () => {
                     </td>
                     <td className="p-4">
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => setSelectedUser(user)}>
-                          <Edit className="h-3 w-3" />
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          <Shield className="h-3 w-3" />
-                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setSelectedUser(user)}><Edit className="h-3 w-3" /></Button>
+                        <Button size="sm" variant="outline"><Shield className="h-3 w-3" /></Button>
                       </div>
                     </td>
                   </tr>
@@ -391,9 +306,7 @@ const UserManagement = () => {
       {selectedUser && (
         <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
           <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>User Details - {selectedUser.name}</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>User Details - {selectedUser.name}</DialogTitle></DialogHeader>
             <div className="space-y-6">
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-xl font-medium">
@@ -404,46 +317,18 @@ const UserManagement = () => {
                   <p className="text-gray-600">{selectedUser.role}</p>
                 </div>
               </div>
-              
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <div>
-                    <Label className="text-sm font-medium text-gray-500">Email</Label>
-                    <p>{selectedUser.email}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-gray-500">Phone</Label>
-                    <p>{selectedUser.phone}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-gray-500">Department</Label>
-                    <p>{selectedUser.department}</p>
-                  </div>
+                  <div><Label className="text-sm font-medium text-gray-500">Email</Label><p>{selectedUser.email}</p></div>
+                  <div><Label className="text-sm font-medium text-gray-500">Phone</Label><p>{selectedUser.phone}</p></div>
+                  <div><Label className="text-sm font-medium text-gray-500">Department</Label><p>{selectedUser.department}</p></div>
                 </div>
                 <div className="space-y-4">
-                  <div>
-                    <Label className="text-sm font-medium text-gray-500">Status</Label>
-                    <div className="mt-1">
-                      <Badge className={`${getStatusColor(selectedUser.status)}`}>
-                        {selectedUser.status}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-gray-500">Join Date</Label>
-                    <p>{selectedUser.joinDate}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-gray-500">Role</Label>
-                    <div className="mt-1">
-                      <Badge className={`${getRoleColor(selectedUser.role)}`}>
-                        {selectedUser.role}
-                      </Badge>
-                    </div>
-                  </div>
+                  <div><Label className="text-sm font-medium text-gray-500">Status</Label><div className="mt-1"><Badge className={`${getStatusColor(selectedUser.status)}`}>{selectedUser.status}</Badge></div></div>
+                  <div><Label className="text-sm font-medium text-gray-500">Join Date</Label><p>{selectedUser.joinDate}</p></div>
+                  <div><Label className="text-sm font-medium text-gray-500">Role</Label><div className="mt-1"><Badge className={`${getRoleColor(selectedUser.role)}`}>{selectedUser.role}</Badge></div></div>
                 </div>
               </div>
-
               <div className="border-t pt-4">
                 <h4 className="font-medium mb-3">Performance Metrics</h4>
                 <div className="grid grid-cols-3 gap-4">
